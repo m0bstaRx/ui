@@ -1,0 +1,93 @@
+python
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+import os
+
+class WebScraper:
+    def __init__(self, base_url):
+        self.base_url = base_url
+        self.session = requests.Session()
+
+    def get_page_content(self, path=''):
+        """
+        Fetches the content of a single webpage.
+
+        Args:
+            path (str): The path to append to the base URL.
+
+        Returns:
+            BeautifulSoup object if successful, None otherwise.
+        """
+        try:
+            response = self.session.get(urljoin(self.base_url, path))
+            response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+            return BeautifulSoup(response.text, 'html.parser')
+        except requests.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+        except Exception as err:
+            print(f"An error occurred: {err}")
+        return None
+
+    def scrape_text(self, soup):
+        """
+        Extracts and returns all text from a BeautifulSoup object.
+
+        Args:
+            soup (BeautifulSoup): BeautifulSoup object to extract text from.
+
+        Returns:
+            str: All text combined into a single string.
+        """
+        if soup:
+            return ' '.join(soup.stripped_strings)
+        return ''
+
+    def scrape_images(self, soup):
+        """
+        Downloads all images from a BeautifulSoup object.
+
+        Args:
+            soup (BeautifulSoup): BeautifulSoup object to find images in.
+        """
+        if soup:
+            images = soup.find_all('img')
+            for img in images:
+                img_url = img.get('src')
+                if img_url:
+                    self.download_image(img_url)
+
+    def download_image(self, img_url):
+        """
+        Downloads an image from the provided URL.
+
+        Args:
+            img_url (str): URL of the image to download.
+        """
+        try:
+            img_response = self.session.get(urljoin(self.base_url, img_url), stream=True)
+            img_response.raise_for_status()
+
+            img_name = os.path.basename(img_url)
+            with open(img_name, 'wb') as f:
+                for chunk in img_response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        except requests.HTTPError as http_err:
+            print(f"HTTP error occurred while downloading image: {http_err}")
+        except Exception as err:
+            print(f"An error occurred while downloading image: {err}")
+
+# Usage example
+scraper = WebScraper('https://example.com')
+page_soup = scraper.get_page_content('/path/to/page')
+text_content = scraper.scrape_text(page_soup)
+scraper.scrape_images(page_soup)
+```
+
+This scraper has several functionalities:
+
+1. **Fetching Web Pages**: `get_page_content` fetches the HTML content of a webpage. It can handle errors and return the content as a `BeautifulSoup` object.
+
+2. **Extracting Text**: `scrape_text` extracts all the text from the page.
+
+3. **Downloading Images**: `scrape_images` finds all images on the page and downloads them using `download_image`.
